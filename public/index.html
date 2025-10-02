@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Flanerie Chat</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="chat-header">
+            <div class="header-content">
+                <h1 class="app-title">Flanerie Chat</h1>
+                <div class="header-info">
+                    <span id="user-count" class="user-count">0 en ligne</span>
+                    <span id="user-nickname" class="user-nickname"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <main class="chat-container">
+            <!-- Messages Area -->
+            <div id="chat-messages" class="chat-messages">
+                <!-- <div class="welcome-message">
+                    <p>Bienvenue sur Flanerie Chat ! 🎉</p>
+                    <p>Commencez à discuter avec les autres en temps réel.</p>
+                </div> -->
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="typing-indicator hidden">
+                <span id="typing-text"></span>
+            </div>
+        </main>
+
+        <!-- Message Input -->
+        <footer class="message-input-container">
+            <div class="input-wrapper">
+                <input 
+                    type="text" 
+                    id="message-input" 
+                    placeholder="Tapez votre message..." 
+                    maxlength="1000"
+                    autocomplete="off"
+                >
+                <button id="send-button" class="send-button" type="button">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m22 2-7 20-4-9-9-4z"/>
+                        <path d="M22 2 11 13"/>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Nickname Modal -->
+    <div id="nickname-modal" class="nickname-modal hidden">
+        <div class="nickname-modal-content">
+            <div class="nickname-modal-header">
+                <h2>Choisir un pseudo</h2>
+                <p>Entrez votre pseudo pour rejoindre le chat</p>
+            </div>
+            <div class="nickname-modal-body">
+                <div class="nickname-input-group">
+                    <input 
+                        type="text" 
+                        id="nickname-input" 
+                        placeholder="Votre pseudo..." 
+                        maxlength="20"
+                        autocomplete="off"
+                    >
+                    <button id="nickname-submit" class="nickname-submit-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 12l2 2 4-4"/>
+                            <circle cx="12" cy="12" r="10"/>
+                        </svg>
+                        Rejoindre
+                    </button>
+                </div>
+                <div id="nickname-error" class="nickname-error hidden"></div>
+                <div class="nickname-rules">
+                    <p>• Au moins 2 caractères</p>
+                    <p>• Maximum 20 caractères</p>
+                    <p>• Le pseudo doit être unique</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status hidden">
+        <span id="connection-text">Connexion...</span>
+    </div>
+
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
