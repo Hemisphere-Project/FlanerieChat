@@ -23,6 +23,8 @@ let isTyping = false;
 let isVIP = false;
 let manualNicknameMode = false;
 let nicknameSet = false;
+let autoScrollEnabled = true;
+let messageTimes = [];
 
 // Check for VIP parameter in URL
 function checkVIPStatus() {
@@ -47,6 +49,15 @@ function scrollToBottom() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }, 0);
 }
+
+function isNearBottom() {
+    const threshold = 50;
+    return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+}
+
+chatMessages.addEventListener('scroll', () => {
+    autoScrollEnabled = isNearBottom();
+});
 
 function generateConsistentColor(nickname) {
     // Generate a consistent color based on nickname
@@ -131,7 +142,7 @@ function addMessage(data, type = 'user', shouldScroll = true) {
     }
     
     chatMessages.appendChild(messageElement);
-    if (shouldScroll) {
+    if (shouldScroll && autoScrollEnabled) {
         scrollToBottom();
     }
 }
@@ -252,16 +263,46 @@ socket.on('zoom-level', (zoomLevel) => {
     }
 });
 
+// Rate limit check for non-VIP users (max 1 msg / 2s)
+function isRateLimited() {
+    if (isVIP) return false;
+    const now = Date.now();
+    messageTimes = messageTimes.filter(t => now - t < 2000);
+    return messageTimes.length >= 1;
+}
+
+function disableSendTemporarily() {
+    sendButton.disabled = true;
+    messageInput.disabled = true;
+    const remaining = 2000 - (Date.now() - messageTimes[0]);
+    setTimeout(() => {
+        sendButton.disabled = false;
+        messageInput.disabled = false;
+        messageInput.focus();
+    }, Math.max(remaining, 100));
+}
+
 // Message sending functionality
 function sendMessage() {
     const message = messageInput.value.trim();
     
     if (message && currentUser) {
+        // Rate limit non-VIP users
+        if (isRateLimited()) {
+            disableSendTemporarily();
+            return;
+        }
+        messageTimes.push(Date.now());
+
         // Send message to server
         socket.emit('chat-message', { message });
         
         // Clear input
         messageInput.value = '';
+        
+        // Re-enable auto-scroll on send
+        autoScrollEnabled = true;
+        scrollToBottom();
         
         // Stop typing indicator
         if (isTyping) {

@@ -21,14 +21,47 @@ let manualNicknameMode = false; // false = auto, true = manual
 
 // Generate random nickname
 function generateRandomNickname() {
-    const adjectives = ['Cool', 'Smart', 'Brave', 'Swift', 'Mighty', 'Clever', 'Bold', 'Bright', 'Happy', 'Lucky'];
-    const nouns = ['Tiger', 'Eagle', 'Wolf', 'Dragon', 'Phoenix', 'Lion', 'Shark', 'Bear', 'Fox', 'Hawk'];
-    
-    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-    const randomNumber = Math.floor(Math.random() * 1000);
-    
-    return `${randomAdjective}${randomNoun}${randomNumber}`;
+    const adjectives = [
+        'Cool', 'Smart', 'Brave', 'Swift', 'Mighty', 'Clever', 'Bold', 'Bright', 'Happy', 'Lucky',
+        'Wild', 'Calm', 'Fierce', 'Noble', 'Sly', 'Keen', 'Daring', 'Witty', 'Gentle', 'Cosmic',
+        'Silent', 'Rapid', 'Golden', 'Silver', 'Crimson', 'Azure', 'Vivid', 'Nimble', 'Jolly', 'Rustic',
+        'Stellar', 'Mystic', 'Radiant', 'Shadow', 'Crystal', 'Velvet', 'Iron', 'Amber', 'Jade', 'Coral',
+        'Frosty', 'Stormy', 'Sunny', 'Misty', 'Dusty', 'Rocky', 'Sandy', 'Snowy', 'Breezy', 'Cloudy'
+    ];
+    const nouns = [
+        'Tiger', 'Eagle', 'Wolf', 'Dragon', 'Phoenix', 'Lion', 'Shark', 'Bear', 'Fox', 'Hawk',
+        'Panda', 'Raven', 'Otter', 'Falcon', 'Dolphin', 'Lynx', 'Cobra', 'Bison', 'Crane', 'Jaguar',
+        'Owl', 'Stag', 'Viper', 'Parrot', 'Beetle', 'Mantis', 'Condor', 'Coyote', 'Moose', 'Badger',
+        'Heron', 'Gecko', 'Puma', 'Ibis', 'Wren', 'Finch', 'Lemur', 'Quail', 'Koala', 'Newt',
+        'Marten', 'Osprey', 'Robin', 'Starling', 'Sparrow', 'Toucan', 'Ferret', 'Penguin', 'Walrus', 'Squid'
+    ];
+
+    const activeNicknames = new Set(
+        Array.from(activeUsers.values())
+            .map(u => u.nickname)
+            .filter(Boolean)
+    );
+
+    // Try to find a unique nickname without a number suffix first
+    for (let attempt = 0; attempt < 50; attempt++) {
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        const nickname = `${adj}${noun}`;
+        if (!activeNicknames.has(nickname)) {
+            return nickname;
+        }
+    }
+
+    // Fallback: add a number to guarantee uniqueness
+    let nickname;
+    do {
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        const num = Math.floor(Math.random() * 1000);
+        nickname = `${adj}${noun}${num}`;
+    } while (activeNicknames.has(nickname));
+
+    return nickname;
 }
 
 // Generate random color for nickname
