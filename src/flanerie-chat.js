@@ -34,13 +34,18 @@ function normalizeNamespace(namespace, mountPath) {
     return normalized === '' ? '/' : normalized;
 }
 
-function buildClientConfig({ mountPath, socketPath, namespace }) {
+function buildClientConfig({ mountPath, socketPath, namespace, realtimeEnabled = true }) {
     return {
         mountPath,
         socketPath,
         namespace,
+        realtimeEnabled,
         socketClientScriptSrc: `${socketPath}/socket.io.js`
     };
+}
+
+function buildAssetBase(mountPath) {
+    return mountPath === '/' ? '' : mountPath;
 }
 
 function buildSocketClientTag(clientConfig) {
@@ -52,8 +57,11 @@ function buildSocketClientTag(clientConfig) {
 }
 
 function renderTemplate(template, clientConfig) {
+    const configJson = JSON.stringify(clientConfig).replace(/</g, '\u003c');
+
     return template
-        .replace('__FLANERIE_CHAT_CONFIG__', JSON.stringify(clientConfig).replace(/</g, '\\u003c'))
+        .replaceAll('__FLANERIE_CHAT_CONFIG_JSON__', configJson)
+        .replaceAll('__FLANERIE_ASSET_BASE__', buildAssetBase(clientConfig.mountPath))
         .replace('__FLANERIE_SOCKET_IO_CLIENT_TAG__', buildSocketClientTag(clientConfig));
 }
 
@@ -477,9 +485,9 @@ export function mountFlanerieChat({
     const clientConfig = buildClientConfig({
         mountPath: normalizedMountPath,
         socketPath: normalizedSocketPath,
-        namespace: normalizedNamespace
+        namespace: normalizedNamespace,
+        realtimeEnabled: true
     });
-    clientConfig.realtimeEnabled = true;
     const router = express.Router();
     const result = {
         router,
