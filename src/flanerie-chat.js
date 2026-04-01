@@ -9,6 +9,7 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(moduleDir, '../public');
 const chatTemplate = readFileSync(path.join(publicDirectory, 'index.html'), 'utf8');
 const backofficeTemplate = readFileSync(path.join(publicDirectory, 'backoffice.html'), 'utf8');
+const internalRealtimeKey = Symbol('flanerie-chat-internal-realtime');
 
 function normalizeMountPath(mountPath = '/') {
     if (!mountPath || mountPath === '/') {
@@ -42,10 +43,18 @@ function buildClientConfig({ mountPath, socketPath, namespace }) {
     };
 }
 
+function buildSocketClientTag(clientConfig) {
+    if (!clientConfig.realtimeEnabled) {
+        return '';
+    }
+
+    return `<script src="${clientConfig.socketClientScriptSrc}"></script>`;
+}
+
 function renderTemplate(template, clientConfig) {
     return template
         .replace('__FLANERIE_CHAT_CONFIG__', JSON.stringify(clientConfig).replace(/</g, '\\u003c'))
-        .replace('__FLANERIE_SOCKET_IO_CLIENT_SRC__', clientConfig.socketClientScriptSrc);
+        .replace('__FLANERIE_SOCKET_IO_CLIENT_TAG__', buildSocketClientTag(clientConfig));
 }
 
 function generateRandomNickname(activeUsers) {
@@ -369,9 +378,90 @@ function registerSocketHandlers(chatIo) {
     };
 }
 
+function getRealtimeContext(app) {
+    if (!app[internalRealtimeKey]) {
+        app[internalRealtimeKey] = {
+            io: null,
+            socketPath: null,
+            listenPatched: false,
+            mounts: []
+        };
+    }
+
+    return app[internalRealtimeKey];
+}
+
+function attachMountToIo({ io, namespace, result }) {
+    if (result.io) {
+        return;
+    }
+
+    const chatNamespace = io.of(namespace);
+    result.io = chatNamespace;
+    result.state = registerSocketHandlers(chatNamespace);
+}
+
+function ensureSocketPathCompatibility(context, socketPath) {
+    if (context.socketPath && context.socketPath !== socketPath) {
+        throw new Error(
+            `Flanerie Chat cannot create multiple internal Socket.IO servers with different socketPath values: ${context.socketPath} and ${socketPath}`
+        );
+    }
+
+    context.socketPath = socketPath;
+}
+
+function ensureInternalIo({ app, httpServer, socketPath }) {
+    const context = getRealtimeContext(app);
+    ensureSocketPathCompatibility(context, socketPath);
+
+    if (!context.io) {
+        if (!httpServer) {
+            throw new Error('Flanerie Chat needs an HTTP server to create its own Socket.IO instance');
+        }
+
+        context.io = new Server(httpServer, { path: socketPath });
+
+        for (const mount of context.mounts) {
+            attachMountToIo({
+                io: context.io,
+                namespace: mount.namespace,
+                result: mount.result
+            });
+        }
+    }
+
+    return context.io;
+}
+
+function registerDeferredRealtimeMount({ app, socketPath, namespace, result }) {
+    const context = getRealtimeContext(app);
+    ensureSocketPathCompatibility(context, socketPath);
+    context.mounts.push({ namespace, result });
+
+    if (context.io) {
+        attachMountToIo({ io: context.io, namespace, result });
+        return;
+    }
+
+    if (context.listenPatched) {
+        return;
+    }
+
+    const originalListen = app.listen.bind(app);
+    context.listenPatched = true;
+
+    app.listen = (...args) => {
+        const server = originalListen(...args);
+        ensureInternalIo({ app, httpServer: server, socketPath });
+        return server;
+    };
+}
+
 export function mountFlanerieChat({
     app,
     io,
+    httpServer,
     mountPath = '/',
     socketPath = '/socket.io',
     namespace,
@@ -379,10 +469,6 @@ export function mountFlanerieChat({
 } = {}) {
     if (!app) {
         throw new Error('mountFlanerieChat requires an Express app instance');
-    }
-
-    if (!io) {
-        throw new Error('mountFlanerieChat requires a Socket.IO server instance');
     }
 
     const normalizedMountPath = normalizeMountPath(mountPath);
@@ -393,7 +479,19 @@ export function mountFlanerieChat({
         socketPath: normalizedSocketPath,
         namespace: normalizedNamespace
     });
+    clientConfig.realtimeEnabled = true;
     const router = express.Router();
+    const result = {
+        router,
+        io: null,
+        state: null,
+        ownsIo: false,
+        realtimeEnabled: true,
+        mountPath: normalizedMountPath,
+        namespace: normalizedNamespace,
+        socketPath: normalizedSocketPath,
+        clientConfig
+    };
 
     router.get('/', (request, response) => {
         response.type('html').send(renderTemplate(chatTemplate, clientConfig));
@@ -406,18 +504,28 @@ export function mountFlanerieChat({
     router.use(express.static(assetsDirectory, { index: false }));
     app.use(normalizedMountPath, router);
 
-    const chatNamespace = io.of(normalizedNamespace);
-    const state = registerSocketHandlers(chatNamespace);
+    if (io) {
+        result.io = io.of(normalizedNamespace);
+        result.state = registerSocketHandlers(result.io);
+        return result;
+    }
 
-    return {
-        router,
-        io: chatNamespace,
-        state,
-        mountPath: normalizedMountPath,
-        namespace: normalizedNamespace,
+    result.ownsIo = true;
+
+    if (httpServer) {
+        const internalIo = ensureInternalIo({ app, httpServer, socketPath: normalizedSocketPath });
+        attachMountToIo({ io: internalIo, namespace: normalizedNamespace, result });
+        return result;
+    }
+
+    registerDeferredRealtimeMount({
+        app,
         socketPath: normalizedSocketPath,
-        clientConfig
-    };
+        namespace: normalizedNamespace,
+        result
+    });
+
+    return result;
 }
 
 export function createStandaloneFlanerieChat({

@@ -1,11 +1,21 @@
 const chatConfig = window.__FLANERIE_CHAT_CONFIG__ || {};
+const realtimeEnabled = chatConfig.realtimeEnabled !== false;
 const socketNamespace = chatConfig.namespace || '/';
 const socketPath = chatConfig.socketPath || '/socket.io';
 
+function createNoopSocket() {
+    return {
+        on() {},
+        emit() {}
+    };
+}
+
 // Initialize Socket.IO connection
-const socket = socketNamespace === '/'
-    ? io({ path: socketPath })
-    : io(socketNamespace, { path: socketPath });
+const socket = realtimeEnabled && typeof io === 'function'
+    ? (socketNamespace === '/'
+        ? io({ path: socketPath })
+        : io(socketNamespace, { path: socketPath }))
+    : createNoopSocket();
 
 // DOM elements
 const connectionStatus = document.getElementById('connection-status');
@@ -40,6 +50,20 @@ let stats = {
 };
 
 let currentZoom = 100;
+
+function setControlsDisabled(disabled) {
+    [
+        newSessionBtn,
+        clearMessagesBtn,
+        clearBlacklistBtn,
+        nicknameModeToggle,
+        zoomDecreaseBtn,
+        zoomIncreaseBtn,
+        zoomSlider
+    ].forEach((element) => {
+        element.disabled = disabled;
+    });
+}
 
 // Utility functions
 function formatTimestamp(timestamp = new Date()) {
@@ -160,6 +184,13 @@ socket.on('connect', () => {
     // Request current nickname mode
     socket.emit('backoffice-get-nickname-mode');
 });
+
+if (!realtimeEnabled || typeof io !== 'function') {
+    connectionStatus.textContent = 'Realtime unavailable';
+    connectionStatus.classList.remove('connected');
+    addLogEntry('This embed was mounted without Socket.IO. Backoffice controls are disabled.', 'warning');
+    setControlsDisabled(true);
+}
 
 socket.on('disconnect', () => {
     console.log('Backoffice disconnected from server');

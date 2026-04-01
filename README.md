@@ -54,14 +54,15 @@ A real-time chat application built with Node.js, Express, and Socket.IO. The pac
 
 ### Embedded mode
 
-You can mount the chat into an existing Express app and Socket.IO server.
+You can mount the chat into an existing Express app, whether the host already has Socket.IO or not.
 
 Requirements in the host app:
 
 - The host already has an Express app instance.
-- The host already has an HTTP server created from that Express app.
-- The host already has a Socket.IO server attached to that HTTP server.
 - The host app uses ESM imports.
+
+If the host app already has Socket.IO, Flanerie Chat will reuse it.
+If the host app only has Express, Flanerie Chat can create and own its own Socket.IO server as long as it can attach to the HTTP server.
 
 ```js
 import express from 'express';
@@ -92,14 +93,58 @@ That setup exposes:
 
 - `/chat` for the chat UI
 - `/chat/backoffice` for the backoffice UI
-- Socket.IO traffic on the `/chat` namespace using the existing server's Socket.IO path
+- Socket.IO traffic on the `/chat` namespace using either the host's Socket.IO server or a Flanerie Chat managed one
 
 How it works:
 
 - `mountPath` controls where the browser UI is served.
 - `namespace` controls which Socket.IO namespace the chat uses.
 - If `namespace` is omitted, it defaults to the same value as `mountPath`.
-- `socketPath` controls the Socket.IO transport endpoint and must match the path used when the host app created its Socket.IO server.
+- `socketPath` controls the Socket.IO transport endpoint and must match the path used when the host app created or will create its Socket.IO server.
+- If `io` is omitted and `httpServer` is provided, Flanerie Chat creates its own Socket.IO server on that HTTP server.
+- If `io` and `httpServer` are both omitted, Flanerie Chat patches `app.listen()` and creates its own Socket.IO server the first time the app starts listening.
+
+Example for an Express-only host app:
+
+```js
+import express from 'express';
+import { mountFlanerieChat } from 'flanerie-chat';
+
+const app = express();
+
+mountFlanerieChat({
+   app,
+   mountPath: '/chat'
+});
+
+app.listen(3000);
+```
+
+In that mode:
+
+- `/chat` and `/chat/backoffice` are still served
+- Flanerie Chat creates its own Socket.IO server when `app.listen()` runs
+- the browser still gets full realtime chat and backoffice functionality
+- `mountFlanerieChat()` returns `ownsIo: true`
+
+If your host app uses `createServer(app)` instead of `app.listen()`, pass that server explicitly:
+
+```js
+import express from 'express';
+import { createServer } from 'node:http';
+import { mountFlanerieChat } from 'flanerie-chat';
+
+const app = express();
+const server = createServer(app);
+
+mountFlanerieChat({
+   app,
+   httpServer: server,
+   mountPath: '/chat'
+});
+
+server.listen(3000);
+```
 
 Example with an existing app that already has other routes and sockets:
 
@@ -200,12 +245,13 @@ server.listen(3000);
 
 ### `mountFlanerieChat(options)`
 
-Mounts Flanerie Chat into an existing Express and Socket.IO setup.
+Mounts Flanerie Chat into an existing Express app, optionally using an existing Socket.IO setup.
 
 Supported options:
 
 - `app`: required Express app instance
-- `io`: required Socket.IO server instance
+- `io`: optional Socket.IO server instance
+- `httpServer`: optional HTTP server used when Flanerie Chat should create its own Socket.IO instance
 - `mountPath`: route prefix for the UI, defaults to `/`
 - `socketPath`: Socket.IO transport path, defaults to `/socket.io`
 - `namespace`: Socket.IO namespace, defaults to the `mountPath`
@@ -213,11 +259,14 @@ Supported options:
 Return value:
 
 - `router`: the Express router mounted into the host app
-- `io`: the Socket.IO namespace used by the chat
-- `state`: in-memory chat state containers for the mounted instance
+- `io`: the Socket.IO namespace used by the chat. When Flanerie Chat lazily creates its own Socket.IO server through `app.listen()`, this becomes available after the server starts.
+- `state`: in-memory chat state containers for the mounted instance. When Flanerie Chat lazily creates its own Socket.IO server through `app.listen()`, this becomes available after the server starts.
+- `ownsIo`: `true` when Flanerie Chat created the Socket.IO server itself
+- `realtimeEnabled`: always `true` for supported embed modes
 - `mountPath`: normalized route prefix
 - `namespace`: normalized Socket.IO namespace
 - `socketPath`: normalized Socket.IO transport path
+- `clientConfig`: injected browser config including realtime availability
 - `clientConfig`: the config injected into the browser pages
 
 ## File Structure

@@ -1,11 +1,21 @@
 const chatConfig = window.__FLANERIE_CHAT_CONFIG__ || {};
+const realtimeEnabled = chatConfig.realtimeEnabled !== false;
 const socketNamespace = chatConfig.namespace || '/';
 const socketPath = chatConfig.socketPath || '/socket.io';
 
+function createNoopSocket() {
+    return {
+        on() {},
+        emit() {}
+    };
+}
+
 // Initialize Socket.IO connection
-const socket = socketNamespace === '/'
-    ? io({ path: socketPath })
-    : io(socketNamespace, { path: socketPath });
+const socket = realtimeEnabled && typeof io === 'function'
+    ? (socketNamespace === '/'
+        ? io({ path: socketPath })
+        : io(socketNamespace, { path: socketPath }))
+    : createNoopSocket();
 
 // DOM elements
 const chatMessages = document.getElementById('chat-messages');
@@ -31,6 +41,25 @@ let manualNicknameMode = false;
 let nicknameSet = false;
 let autoScrollEnabled = true;
 let messageTimes = [];
+
+function showUnavailableBanner(message) {
+    const banner = document.createElement('div');
+    banner.className = 'chat-unavailable-banner';
+    banner.textContent = message;
+    chatMessages.prepend(banner);
+}
+
+function setChatAvailability(enabled) {
+    messageInput.disabled = !enabled;
+    sendButton.disabled = !enabled;
+
+    if (!enabled) {
+        userCount.textContent = 'Chat hors ligne';
+        userNickname.textContent = 'Temps réel indisponible';
+        showConnectionStatus('Temps réel indisponible dans cette intégration', true);
+        showUnavailableBanner('This embedded chat was mounted without Socket.IO. Connect a Socket.IO server to enable live messaging.');
+    }
+}
 
 // Check for VIP parameter in URL
 function checkVIPStatus() {
@@ -164,6 +193,10 @@ socket.on('connect', () => {
         socket.emit('set-vip-status', true);
     }
 });
+
+if (!realtimeEnabled || typeof io !== 'function') {
+    setChatAvailability(false);
+}
 
 socket.on('disconnect', () => {
     console.log('Disconnected from server');
@@ -363,7 +396,9 @@ messageInput.addEventListener('blur', () => {
 
 // Focus input on page load
 window.addEventListener('load', () => {
-    messageInput.focus();
+    if (!messageInput.disabled) {
+        messageInput.focus();
+    }
 });
 
 // Handle page visibility changes

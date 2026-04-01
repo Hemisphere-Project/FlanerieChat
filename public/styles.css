@@ -132,6 +132,17 @@ body {
     margin-bottom: 0.5rem;
 }
 
+.chat-unavailable-banner {
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(234, 32, 39, 0.35);
+    border-radius: 0.9rem;
+    background: rgba(234, 32, 39, 0.12);
+    color: #ffd5d7;
+    font-size: calc(0.82rem * var(--zoom-scale));
+    line-height: 1.5;
+}
+
 /* Message styles */
 .message {
     max-width: 85%;
