@@ -97,8 +97,10 @@
         <span id="connection-text">Connexion...</span>
     </div>
 
-    <!-- Socket.IO Client -->
-    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        window.__FLANERIE_CHAT_CONFIG__ = __FLANERIE_CHAT_CONFIG__;
+    </script>
+    <script src="__FLANERIE_SOCKET_IO_CLIENT_SRC__"></script>
     <script src="script.js"></script>
 </body>
 </html>

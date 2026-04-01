@@ -2,7 +2,11 @@
   "name": "flanerie-chat",
   "version": "1.0.0",
   "description": "A simple real-time web chat application",
-  "main": "server.js",
+  "type": "module",
+  "main": "./src/flanerie-chat.js",
+  "exports": {
+    ".": "./src/flanerie-chat.js"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"

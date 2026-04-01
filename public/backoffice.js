@@ -1,5 +1,11 @@
+const chatConfig = window.__FLANERIE_CHAT_CONFIG__ || {};
+const socketNamespace = chatConfig.namespace || '/';
+const socketPath = chatConfig.socketPath || '/socket.io';
+
 // Initialize Socket.IO connection
-const socket = io();
+const socket = socketNamespace === '/'
+    ? io({ path: socketPath })
+    : io(socketNamespace, { path: socketPath });
 
 // DOM elements
 const connectionStatus = document.getElementById('connection-status');
