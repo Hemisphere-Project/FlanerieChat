@@ -230,6 +230,13 @@ function registerSocketHandlers(chatIo) {
                 return;
             }
 
+            // socket.io runs listeners outside any try/catch: a malformed emit
+            // (null data, no message) threw on data.message and took the whole
+            // host Node process down. Ignore anything but a non-empty string.
+            if (!data || typeof data.message !== 'string' || !data.message.trim()) {
+                return;
+            }
+
             if (manualNicknameMode && !user.nicknameSet) {
                 socket.emit('backoffice-error', { message: 'Please set your nickname first' });
                 return;
